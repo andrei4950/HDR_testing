@@ -1,5 +1,7 @@
 from PIL import Image
 import numpy as np
+from matplotlib import pyplot
+from scipy.optimize import curve_fit
 
 
 def is_overexposed(pixel):
@@ -52,7 +54,7 @@ def scale_brightness(img, a):
                 out[line][column][colour] = min(255, img[line][column][colour] * a)
     return out
 
-
+"""
 test_images = load_test_images()
 numpydata = np.asarray(test_images[4])
 
@@ -66,7 +68,47 @@ print(out.shape)
 image = Image.fromarray(out, 'RGB')
 # Save the image
 image.save('image.png')
+"""
+
+
+def quadratic(x, a, b, c):
+    return np.clip(a*x**2+b*x+c, 0, 255)
+
+
+def sqrt(x, a, b, c):
+    return np.clip(a*x+b*x**0.5+c, 0, 255)
+
+def cubic(x, a, b, c, d):
+    return np.clip(a*x**3+b*x**2+c*x+d, 0, 255)
 
 
 if __name__ == '__main__':
-    pass
+    bright_hd, med_hd, dark_hd, bright, med, dark = load_test_images()
+
+    x = np.asarray(dark).flatten()
+    y = np.asarray(bright).flatten()
+
+    pyplot.scatter(x, y, s=1)
+
+    print("starting fit")
+    params, covariant_matrix = curve_fit(f=quadratic, xdata=x, ydata=y, p0=[-0.004, 1.97, 10])
+    parameter_uncertainties = np.sqrt(covariant_matrix.diagonal())
+    print(params)
+    print(parameter_uncertainties)
+    pyplot.plot(np.arange(255), quadratic(np.arange(255), params[0], params[1], params[2]), color='red')
+
+    print("starting fit 2")
+    params, covariant_matrix = curve_fit(f=sqrt, xdata=x, ydata=y, p0=[0, 23, 19])
+    parameter_uncertainties = np.sqrt(covariant_matrix.diagonal())
+    print(params)
+    print(parameter_uncertainties)
+    pyplot.plot(np.arange(255), sqrt(np.arange(255), params[0], params[1], params[2]), color='pink')
+
+    print("starting fit 3")
+    params, covariant_matrix = curve_fit(f=cubic, xdata=x, ydata=y, p0=[0, 0, 2, 10])
+    parameter_uncertainties = np.sqrt(covariant_matrix.diagonal())
+    print(params)
+    print(parameter_uncertainties)
+    pyplot.plot(np.arange(255), cubic(np.arange(255), params[0], params[1], params[2], params[3]), color='orange')
+
+    pyplot.show()
