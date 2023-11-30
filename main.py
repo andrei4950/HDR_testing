@@ -37,7 +37,11 @@ def load_test_images():
     low_res_1 = Image.open('testing resources/low_res_1.JPG')
     low_res_2 = Image.open('testing resources/low_res_2.JPG')
     low_res_3 = Image.open('testing resources/low_res_3.JPG')
-    return hi_res_1, hi_res_2, hi_res_3, low_res_1, low_res_2, low_res_3
+    test_b = Image.open('testing resources/test_bright.jpeg')
+    test_m = Image.open('testing resources/test_med.jpeg')
+    test_d = Image.open('testing resources/test_dark.jpeg')
+
+    return hi_res_1, hi_res_2, hi_res_3, low_res_1, low_res_2, low_res_3, test_b, test_m, test_d
 
 
 def scale_brightness(img, a):
@@ -83,10 +87,14 @@ def cubic(x, a, b, c, d):
 
 
 if __name__ == '__main__':
-    bright_hd, med_hd, dark_hd, bright, med, dark = load_test_images()
+    bright_hd, med_hd, dark_hd, bright, med, dark, t_b, t_m, t_d = load_test_images()
 
-    x = np.asarray(dark).flatten()
-    y = np.asarray(bright).flatten()
+    np_darker = np.asarray(t_d)
+    np_brighter = np.asarray(t_m)
+    shape = np_darker.shape
+    print(shape)
+    x = np_darker.flatten()
+    y = np_brighter.flatten()
 
     pyplot.scatter(x, y, s=1)
 
@@ -112,3 +120,8 @@ if __name__ == '__main__':
     pyplot.plot(np.arange(255), cubic(np.arange(255), params[0], params[1], params[2], params[3]), color='orange')
 
     pyplot.show()
+
+    out = cubic(x, params[0], params[1], params[2], params[3])
+    out = np.ones(out.shape)*128 + out - y
+    image = Image.fromarray(out.reshape(shape).astype('uint8'), 'RGB')
+    image.save('image.png')
