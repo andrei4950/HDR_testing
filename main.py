@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image, ImageCms
 import numpy as np
 from matplotlib import pyplot
 from scipy.optimize import curve_fit
@@ -121,7 +121,46 @@ if __name__ == '__main__':
 
     pyplot.show()
 
-    out = cubic(x, params[0], params[1], params[2], params[3])
+    # Convert to Lab colourspace
+    srgb_p = ImageCms.createProfile("sRGB")
+    lab_p = ImageCms.createProfile("LAB")
+
+    rgb2lab = ImageCms.buildTransformFromOpenProfiles(srgb_p, lab_p, "RGB", "LAB")
+    lab2rgb = ImageCms.buildTransformFromOpenProfiles(lab_p, srgb_p, "LAB", "RGB")
+    Lab_d = ImageCms.applyTransform(t_d, rgb2lab)
+    Lab_m = ImageCms.applyTransform(t_m, rgb2lab)
+
+    # Split into constituent channels so we can save 3 separate greyscales
+    L_d, a_d, b_d = Lab_d.split()
+    L_m, a_m, b_m = Lab_m.split()
+
+    print(np.asarray(L_d).shape)
+
+    x = np.asarray(L_d).flatten()
+    y = np.asarray(L_m).flatten()
+
+    pyplot.scatter(x, y, s=1)
+
+    print("starting fit Lab")
+    params, covariant_matrix = curve_fit(f=cubic, xdata=x, ydata=y, p0=[0, 0, 2, 10])
+    parameter_uncertainties = np.sqrt(covariant_matrix.diagonal())
+    print(params)
+    print(parameter_uncertainties)
+    pyplot.plot(np.arange(255), cubic(np.arange(255), params[0], params[1], params[2], params[3]), color='green')
+
+    pyplot.show()
+
+    L_d.save('L_d.png')
+    x = x.reshape((320, 427))
+    out = np.stack((x, np.asarray(a_d), np.asarray(b_d)), axis=2)
+    print(out.shape)
+    L_d2 = Image.fromarray(out.astype('uint8'), 'LAB')
+    L_d2 = ImageCms.applyTransform(L_d2, lab2rgb)
+    L_d2.save('L_d2.png')
+
+
+    """out = cubic(x, params[0], params[1], params[2], params[3])
     out = np.ones(out.shape)*128 + out - y
     image = Image.fromarray(out.reshape(shape).astype('uint8'), 'RGB')
-    image.save('image.png')
+    image.save('image.png')"""
+
