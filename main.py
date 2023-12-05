@@ -1,3 +1,4 @@
+import numpy
 from PIL import Image
 import numpy as np
 from matplotlib import pyplot
@@ -82,14 +83,71 @@ def quadratic(x, a, b, c):
 def sqrt(x, a, b, c):
     return np.clip(a*x+b*x**0.5+c, 0, 255)
 
+
+def cubic_compact(x, params):
+    return cubic(x, params[0], params[1], params[2], params[3])
+
+
 def cubic(x, a, b, c, d):
     return np.clip(a*x**3+b*x**2+c*x+d, 0, 255)
+
+
+def get_weights(img: np.array):
+    one = np.ones(img.shape())
+    return one*20 - (img - one*128)**2/850
+
+
+def make_hdr(img_array):
+    # get shape and make sure images are all the same shape
+    shape = None
+    for img in img_array:
+        if shape is None:
+            shape = img.shape()
+        else:
+            if shape != img.shape:
+                raise Exception("Images have different shapes {}, {}".format(shape, img.shape()))
+
+    # flatten images
+    for i in range(len(img_array)):
+        img_array[i].flatten()
+
+    # sort images
+
+    # obtain scalings
+    relative_scalings = []
+    for i in range(1, len(img_array)):
+        params, covariant_matrix = curve_fit(f=cubic, xdata=img_array[i-1], ydata=img_array[i], p0=[0, 0, 2, 10])
+        relative_scalings.append(params)
+
+    # get weights
+    weights = []
+    for img in img_array:
+        weights.append(get_weights(img))
+
+    # scale up all images
+    for img_i in range(len(img_array-1)):
+        for scaling_i in range(img_i, len(img_array-1)):
+            img_array[img_i] = cubic_compact(img_array[img_i], relative_scalings[scaling_i])
+
+    # average images
+    sum = numpy.zeros(shape).flatten()
+    tot_weights = numpy.zeros(shape).flatten()
+    for i in range(len(img_array)):
+        sum += img_array[i] * weights[i]
+
+    hdr = sum / tot_weights
+
+    return Image.fromarray(hdr.reshape(shape).astype('uint8'), 'RGB'), hdr
 
 
 if __name__ == '__main__':
     bright_hd, med_hd, dark_hd, bright, med, dark, t_b, t_m, t_d = load_test_images()
 
-    np_darker = np.asarray(t_d)
+    m = np.array(range(25))
+    print(m)
+    print(get_weights(m))
+
+    """np_darker = np.asarray(t_d)
     np_brighter = np.asarray(t_m)
     shape = np_darker.shape
     print(shape)
@@ -124,4 +182,5 @@ if __name__ == '__main__':
     out = cubic(x, params[0], params[1], params[2], params[3])
     out = np.ones(out.shape)*128 + out - y
     image = Image.fromarray(out.reshape(shape).astype('uint8'), 'RGB')
-    image.save('image.png')
+    image.save('image.png')"""
+
