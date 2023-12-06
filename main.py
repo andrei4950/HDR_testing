@@ -84,16 +84,20 @@ def sqrt(x, a, b, c):
     return np.clip(a*x+b*x**0.5+c, 0, 255)
 
 
-def cubic_compact(x, params):
-    return cubic(x, params[0], params[1], params[2], params[3])
+def cubic_compact(x, params, clipping = True):
+    return cubic(x, params[0], params[1], params[2], params[3], clipping=clipping)
 
 
-def cubic(x, a, b, c, d):
-    return np.clip(a*x**3+b*x**2+c*x+d, 0, 255)
+def cubic(x, a, b, c, d, clipping = True):
+    out = a*x**3+b*x**2+c*x+d
+    if clipping:
+        return np.clip(out, 0, 255)
+    else:
+        return out
 
 
 def get_weights(img: np.array):
-    one = np.ones(img.shape())
+    one = np.ones(img.shape)
     return one*20 - (img - one*128)**2/850
 
 
@@ -102,14 +106,16 @@ def make_hdr(img_array):
     shape = None
     for img in img_array:
         if shape is None:
-            shape = img.shape()
+            shape = img.shape
         else:
             if shape != img.shape:
-                raise Exception("Images have different shapes {}, {}".format(shape, img.shape()))
+                raise Exception("Images have different shapes {}, {}".format(shape, img.shape))
 
     # flatten images
     for i in range(len(img_array)):
-        img_array[i].flatten()
+        img_array[i] = img_array[i].flatten().astype('float64')
+    print("images: ")
+    print(img_array)
 
     # sort images
 
@@ -118,34 +124,45 @@ def make_hdr(img_array):
     for i in range(1, len(img_array)):
         params, covariant_matrix = curve_fit(f=cubic, xdata=img_array[i-1], ydata=img_array[i], p0=[0, 0, 2, 10])
         relative_scalings.append(params)
+    print("scalings: ")
+    print(relative_scalings)
 
     # get weights
     weights = []
     for img in img_array:
         weights.append(get_weights(img))
+    print("weights: ")
+    print(weights)
 
     # scale up all images
-    for img_i in range(len(img_array-1)):
-        for scaling_i in range(img_i, len(img_array-1)):
-            img_array[img_i] = cubic_compact(img_array[img_i], relative_scalings[scaling_i])
+    for img_i in range(len(img_array)-1):
+        for scaling_i in range(img_i, len(img_array)-1):
+            img_array[img_i] = cubic_compact(img_array[img_i], relative_scalings[scaling_i], clipping=False)
+    print("scaled images: ")
+    print(img_array)
 
     # average images
     sum = numpy.zeros(shape).flatten()
     tot_weights = numpy.zeros(shape).flatten()
     for i in range(len(img_array)):
         sum += img_array[i] * weights[i]
-
+        tot_weights += weights[i]
+    print("sum: ")
+    print(sum)
     hdr = sum / tot_weights
+    print("hdr: ")
+    print(hdr)
+    print(hdr.max())
+    hdr = hdr / hdr.max() * 255
 
-    return Image.fromarray(hdr.reshape(shape).astype('uint8'), 'RGB'), hdr
+    return Image.fromarray(hdr.reshape(shape).astype('uint8'), 'RGB')
 
 
 if __name__ == '__main__':
     bright_hd, med_hd, dark_hd, bright, med, dark, t_b, t_m, t_d = load_test_images()
 
-    m = np.array(range(25))
-    print(m)
-    print(get_weights(m))
+    hdr = make_hdr([np.asarray(t_d), np.asarray(t_b)])
+    hdr.save('image.png')
 
     """np_darker = np.asarray(t_d)
     np_brighter = np.asarray(t_m)
