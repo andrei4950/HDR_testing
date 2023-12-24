@@ -42,7 +42,21 @@ def load_test_images():
     test_m = Image.open('testing resources/test_med.jpeg')
     test_d = Image.open('testing resources/test_dark.jpeg')
 
-    return hi_res_1, hi_res_2, hi_res_3, low_res_1, low_res_2, low_res_3, test_b, test_m, test_d
+    i1 = Image.open("testing resources/DSC06923.JPG")
+    i2 = Image.open("testing resources/DSC06924.JPG")
+    i3 = Image.open("testing resources/DSC06925.JPG")
+    i4 = Image.open("testing resources/DSC06926.JPG")
+    i5 = Image.open("testing resources/DSC06927.JPG")
+    i6 = Image.open("testing resources/DSC06928.JPG")
+    i7 = Image.open("testing resources/DSC06929.JPG")
+    i8 = Image.open("testing resources/DSC06930.JPG")
+    i9 = Image.open("testing resources/DSC06931.JPG")
+    i10 = Image.open("testing resources/DSC06932.JPG")
+    i11= Image.open("testing resources/DSC06933.JPG")
+    i12 = Image.open("testing resources/DSC06934.JPG")
+
+    return [hi_res_1, hi_res_2, hi_res_3, low_res_1, low_res_2, low_res_3, test_b, test_m, test_d,
+            i1, i2, i3, i4, i5, i6, i7, i8, i9, i10, i11, i12]
 
 
 def scale_brightness(img, a):
@@ -84,6 +98,18 @@ def sqrt(x, a, b, c):
     return np.clip(a*x+b*x**0.5+c, 0, 255)
 
 
+def lin_compact(x, params, clipping=True):
+    return lin(x, params[0], params[1], clipping=clipping)
+
+
+def lin(x, a, b, clipping = True):
+    out = a * x + b
+    if clipping:
+        return np.clip(out, 0, 255)
+    else:
+        return out
+
+
 def cubic_compact(x, params, clipping = True):
     return cubic(x, params[0], params[1], params[2], params[3], clipping=clipping)
 
@@ -122,7 +148,7 @@ def make_hdr(img_array):
     # obtain scalings
     relative_scalings = []
     for i in range(1, len(img_array)):
-        params, covariant_matrix = curve_fit(f=cubic, xdata=img_array[i-1], ydata=img_array[i], p0=[0, 0, 2, 10])
+        params, covariant_matrix = curve_fit(f=lin, xdata=img_array[i-1], ydata=img_array[i], p0=[2, 0])
         relative_scalings.append(params)
     print("scalings: ")
     print(relative_scalings)
@@ -137,7 +163,7 @@ def make_hdr(img_array):
     # scale up all images
     for img_i in range(len(img_array)-1):
         for scaling_i in range(img_i, len(img_array)-1):
-            img_array[img_i] = cubic_compact(img_array[img_i], relative_scalings[scaling_i], clipping=False)
+            img_array[img_i] = lin_compact(img_array[img_i], relative_scalings[scaling_i], clipping=False)
     print("scaled images: ")
     print(img_array)
 
@@ -153,15 +179,23 @@ def make_hdr(img_array):
     print("hdr: ")
     print(hdr)
     print(hdr.max())
+    #hdr = np.log(hdr)
     hdr = hdr / hdr.max() * 255
 
     return Image.fromarray(hdr.reshape(shape).astype('uint8'), 'RGB')
 
 
 if __name__ == '__main__':
-    bright_hd, med_hd, dark_hd, bright, med, dark, t_b, t_m, t_d = load_test_images()
+    img_array = load_test_images()
+    #img_array = [[0, 2, 10, 100, 110, 200], [0, 4, 21, 200, 221, 255], [0, 12, 62, 255, 255, 255]]
+    images_as_np_array = []
 
-    hdr = make_hdr([np.asarray(t_d), np.asarray(t_b)])
+    for img in img_array:
+        images_as_np_array.append(np.asarray(img))
+        print(np.asarray(img).shape)
+
+    #hdr = make_hdr(images_as_np_array)
+    hdr = make_hdr(images_as_np_array[9:17])
     hdr.save('image.png')
 
     """np_darker = np.asarray(t_d)
